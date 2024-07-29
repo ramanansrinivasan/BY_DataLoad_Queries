@@ -1,0 +1,172 @@
+[select eh.eo_data_seq,
+        dwnld.dwnld_info,
+        sl_evt_data.evt_data_seq,
+        sl_evt_data.evt_stat_cd,
+        dwnld.dwnld_seq,
+        dwnld.ins_dt,
+        dwnld.last_upd_dt,
+        sl_evt_data.evt_dt
+   from sl_evt_data
+   left
+   join sl_eo_data_hdr eh
+     on sl_evt_data.evt_data_seq = eh.evt_data_seq
+   left
+   join sl_ifd_data_hdr ifdh
+     on eh.evt_data_seq = ifdh.evt_data_seq
+    and ifdh.sys_id = sl_evt_data.sys_id
+   left
+   join sl_dwnld dwnld
+     on ifdh.dwnld_seq = dwnld.dwnld_seq
+  where sl_evt_data.sys_id = 'UC_DM'
+    and sl_evt_data.evt_id = 'UC_PART_MANAGEMENT'
+    and sl_evt_data.evt_dt > sysdate -4
+  order by 2,
+        4 asc]
+|
+sl_list eo_data_fld
+ WHERE return_as_projection = 'F'
+   AND eo_data_dtl_seq = '2'
+   AND eo_data_seq = @eo_data_seq
+   and eo_fld_id = 'PRTNUM'
+|
+publish data
+ where dwnld_info = @dwnld_info
+   and event_prtnum = @value
+   and evt_data_seq = @evt_data_seq
+   and evt_stat_cd = @evt_stat_cd
+|
+if (@evt_stat_cd = 'IE')
+{
+    [select string_agg(msg_log_data, ', ') errors
+       from sl_msg_log
+      where evt_data_seq = @evt_data_seq
+        and src_file = 'slServer_Exec'
+        and def_typ_cd = 'IFD'
+        and msg_log_data is not null]
+}
+|
+if (@evt_stat_cd = 'SC')
+{
+    [select prthrcy_view.hrcy_level1,
+            prthrcy_view.hrcy_level2,
+            prthrcy_view.hrcy_level3,
+            prthrcy_view.hrcy_level4,
+            prthrcy_view.hrcy_level5,
+            prtmst_view.prtnum,
+            prtmst_view.comcod,
+            prtmst_view.prtfam,
+            prtmst_view.untcst,
+            prtmst_view.rcvsts,
+            prtmst_view.prdflg,
+            prtmst_view.prtsize,
+            prtmst_view.crncy_code,
+            prtmst_view.dflt_orgcod,
+            prtmst_view.cstms_cmmdty_cod,
+            prtmst_view.dsp_prtnum,
+            prtmst_view.prthrcy,
+            prtdsc.lngdsc,
+            prtdsc.short_dsc,
+            alt_prtmst.alt_prt_typ,
+            alt_prtmst.alt_prtnum,
+            prtftp.ftpcod,
+            dscmst.lngdsc ftp_lngdsc,
+            prtftp.caslvl,
+            prtftp.defftp_flg,
+            ftp_each.uomcod each_uomcod,
+            ftp_each.uomlvl each_uomcod,
+            ftp_each.len each_len,
+            ftp_each.wid each_wid,
+            ftp_each.hgt each_hgt,
+            ftp_each.grswgt each_grswgt,
+            ftp_each.netwgt each_netwgt,
+            ftp_each.pal_flg each_pal_flg,
+            ftp_each.cas_flg each_cas_flg,
+            ftp_each.pak_flg each_pak_flg,
+            ftp_each.stk_flg each_stk_flg,
+            ftp_each.rcv_flg each_rcv_flg,
+            ftp_each.untqty each_untqty,
+            ftp_each.thresh_pct each_thresh_pct,
+            ftp_case.uomcod case_uomcod,
+            ftp_case.uomlvl case_uomcod,
+            ftp_case.len case_len,
+            ftp_case.wid case_wid,
+            ftp_case.hgt case_hgt,
+            ftp_case.grswgt case_grswgt,
+            ftp_case.netwgt case_netwgt,
+            ftp_case.pal_flg case_pal_flg,
+            ftp_case.cas_flg case_cas_flg,
+            ftp_case.pak_flg case_pak_flg,
+            ftp_case.stk_flg case_stk_flg,
+            ftp_case.rcv_flg case_rcv_flg,
+            ftp_case.untqty case_untqty,
+            ftp_case.thresh_pct case_thresh_pct,
+            ftp_pallet.uomcod pallet_uomcod,
+            ftp_pallet.uomlvl pallet_uomcod,
+            ftp_pallet.len pallet_len,
+            ftp_pallet.wid pallet_wid,
+            ftp_pallet.hgt pallet_hgt,
+            ftp_pallet.grswgt pallet_grswgt,
+            ftp_pallet.netwgt pallet_netwgt,
+            ftp_pallet.pal_flg pallet_pal_flg,
+            ftp_pallet.cas_flg pallet_cas_flg,
+            ftp_pallet.pak_flg pallet_pak_flg,
+            ftp_pallet.stk_flg pallet_stk_flg,
+            ftp_pallet.rcv_flg pallet_rcv_flg,
+            ftp_pallet.untqty pallet_untqty,
+            ftp_pallet.thresh_pct pallet_thresh_pct
+       from prthrcy_view
+       left
+       join prtmst_view
+         on prthrcy_view.prtnum = prtmst_view.prtnum
+        and prthrcy_view.wh_id = prtmst_view.wh_id_tmpl
+        and prthrcy_view.prt_client_id = prtmst_view.prt_client_id
+       left
+       join prtdsc
+         on prtdsc.colval = prtmst_view.prtnum || '|' || prtmst_view.prt_client_id || '|' || prtmst_view.wh_id
+        and prtdsc.locale_id = 'US_ENGLISH'
+        and prtdsc.colnam = 'prtnum|prt_client_id|wh_id_tmpl'
+       left
+       join alt_prtmst
+         on alt_prtmst.prtnum = prtmst_view.prtnum
+       left
+       join prtftp
+         on prtftp.prtnum = prtmst_view.prtnum
+        and prtftp.wh_id = prtmst_view.wh_id
+        and prtftp.prt_client_id = prtmst_view.prt_client_id
+        and prtftp.prtnum = prtmst_view.prtnum --and prtftp.ftpcod = prtmst_view.prtnum
+       left
+       join dscmst
+         on dscmst.colnam = 'prtnum|prt_client_id|wh_id|ftpcod'
+        and dscmst.locale_id = 'US_ENGLISH'
+        and dscmst.colval = prtftp.prtnum || '|' || prtftp.prt_client_id || '|' || prtftp.wh_id || '|' || prtftp.ftpcod
+       left
+       join prtftp_dtl ftp_each
+         on ftp_each.ftpcod = prtftp.ftpcod
+        and ftp_each.prtnum = prtftp.prtnum
+        and ftp_each.wh_id = prtftp.wh_id
+        and ftp_each.prt_client_id = prtftp.prt_client_id
+        and ftp_each.uomcod = 'EA'
+       left
+       join prtftp_dtl ftp_case
+         on ftp_case.ftpcod = prtftp.ftpcod
+        and ftp_case.prtnum = prtftp.prtnum
+        and ftp_case.wh_id = prtftp.wh_id
+        and ftp_case.prt_client_id = prtftp.prt_client_id
+        and ftp_case.uomcod = 'CS'
+       left
+       join prtftp_dtl ftp_pallet
+         on ftp_pallet.ftpcod = prtftp.ftpcod
+        and ftp_pallet.prtnum = prtftp.prtnum
+        and ftp_pallet.wh_id = prtftp.wh_id
+        and ftp_pallet.prt_client_id = prtftp.prt_client_id
+        and ftp_pallet.uomcod = 'PA'
+      where prthrcy_view.prtnum = @event_prtnum
+        and prthrcy_view.wh_id = '1019']
+}
+|
+dump stack >> result
+|
+write csv file
+ where filename = 'itemloadreport.csv'
+   and path = @@LESDIR || '/temp/'
+   and res = @result;

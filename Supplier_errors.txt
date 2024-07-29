@@ -1,0 +1,89 @@
+[select eh.eo_data_seq,
+        dwnld.dwnld_info,
+        sl_evt_data.evt_data_seq,
+        sl_evt_data.evt_stat_cd,
+        dwnld.dwnld_seq,
+        dwnld.ins_dt,
+        dwnld.last_upd_dt,
+        sl_evt_data.evt_dt
+   from sl_evt_data
+   left
+   join sl_eo_data_hdr eh
+     on sl_evt_data.evt_data_seq = eh.evt_data_seq
+   left
+   join sl_ifd_data_hdr ifdh
+     on eh.evt_data_seq = ifdh.evt_data_seq
+    and ifdh.sys_id = sl_evt_data.sys_id
+   left
+   join sl_dwnld dwnld
+     on ifdh.dwnld_seq = dwnld.dwnld_seq
+  where sl_evt_data.sys_id = 'UC_DM'
+    and sl_evt_data.evt_id = 'MNT-SUP'
+    and sl_evt_data.evt_dt > sysdate -4
+  order by 2,
+        4 asc]
+|
+sl_list eo_data_fld
+ WHERE return_as_projection = 'F'
+   AND eo_data_dtl_seq = '0'
+   AND eo_data_seq = @eo_data_seq
+   AND eo_fld_id = 'SUPNUM'
+|
+publish data
+ where dwnld_info = @dwnld_info
+   and event_supnum = @value
+   and evt_data_seq = @evt_data_seq
+   and evt_stat_cd = @evt_stat_cd
+|
+if (@evt_stat_cd = 'IE')
+{
+    [select string_agg(msg_log_data, ', ') errors
+       from sl_msg_log
+      where evt_data_seq = @evt_data_seq
+        and src_file = 'slServer_Exec'
+        and def_typ_cd = 'IFD'
+        and msg_log_data is not null]
+}
+|
+if (@evt_stat_cd = 'SC')
+{
+    [select supmst.supnum,
+            supmst.client_id,
+            adrmst.host_ext_id,
+            adrmst.adrnam,
+            adrmst.adrtyp,
+            adrmst.adrln1,
+            adrmst.adrln2,
+            adrmst.adrln3,
+            adrmst.adrcty,
+            adrmst.adrstc,
+            adrmst.adrpsz,
+            adrmst.ctry_name,
+            adrmst.rgncod,
+            adrmst.phnnum,
+            adrmst.faxnum,
+            adrmst.rsaflg,
+            adrmst.temp_flg,
+            adrmst.last_name,
+            adrmst.first_name,
+            adrmst.honorific,
+            adrmst.adr_district,
+            adrmst.web_adr,
+            adrmst.email_adr,
+            adrmst.pagnum,
+            adrmst.locale_id,
+            adrmst.po_box_flg,
+            supmst.asset_typ,
+            supmst.rcvsts,
+            supmst.lot_fmt_id,
+            supmst.ser_num_typ_id,
+            supmst.autorcv_flg,
+            supmst.trust_flg
+       from supmst
+       left
+       join adrmst
+         on adrmst.adr_id = supmst.adr_id
+      where supnum = @event_supnum] catch(-1403)
+}
+|
+dump stack

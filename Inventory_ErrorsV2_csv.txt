@@ -1,0 +1,111 @@
+[select eh.eo_data_seq,
+        dwnld.dwnld_info,
+        sl_evt_data.evt_data_seq,
+        sl_evt_data.evt_stat_cd,
+        dwnld.dwnld_seq,
+        dwnld.ins_dt,
+        dwnld.last_upd_dt,
+        sl_evt_data.evt_dt
+   from sl_evt_data
+   left
+   join sl_eo_data_hdr eh
+     on sl_evt_data.evt_data_seq = eh.evt_data_seq
+   left
+   join sl_ifd_data_hdr ifdh
+     on eh.evt_data_seq = ifdh.evt_data_seq
+    and ifdh.sys_id = sl_evt_data.sys_id
+   left
+   join sl_dwnld dwnld
+     on ifdh.dwnld_seq = dwnld.dwnld_seq
+  where sl_evt_data.sys_id = 'UC_DM'
+    and sl_evt_data.evt_id = 'CREATE_INVENTORY'
+    and sl_evt_data.evt_dt > sysdate -3
+  order by 2,
+        4 asc]
+|
+sl_list eo_data_fld
+ WHERE return_as_projection = 'F'
+   AND eo_data_dtl_seq = '1'
+   AND eo_data_seq = @eo_data_seq
+   and eo_fld_id = 'LODNUM' >> res
+|
+publish top rows
+ where count = 1
+   and res = @res
+|
+publish data
+ where event_lodnum = @value
+|
+sl_list eo_data_fld
+ WHERE return_as_projection = 'F'
+   AND eo_data_dtl_seq = '1'
+   AND eo_data_seq = @eo_data_seq
+   and eo_fld_id = 'DSTLOC' >> res2
+|
+publish top rows
+ where count = 1
+   and res = @res2
+|
+publish data
+ where dwnld_info = @dwnld_info
+   and event_lodnum = @event_lodnum
+   and evt_data_seq = @evt_data_seq
+   and evt_stat_cd = @evt_stat_cd
+   and stoloc = @value
+|
+if (@evt_stat_cd = 'IE')
+{
+    [select string_agg(msg_log_data, ', ') errors
+       from sl_msg_log
+      where evt_data_seq = @evt_data_seq
+        and src_file = 'slServer_Exec'
+        and def_typ_cd = 'IFD'
+        and msg_log_data is not null]
+}
+|
+if (@evt_stat_cd = 'SC')
+{
+    [select prtnum,
+            untcas,
+            invsts,
+            sum(untqty) untqty,
+            stoloc dstloc,
+            lodnum,
+            ftpcod,
+            fifdte
+       from inventory_view
+      where lodnum = @event_lodnum
+         or stoloc = @stoloc
+      group by prtnum,
+            untcas,
+            invsts,
+            stoloc,
+            lodnum,
+            ftpcod,
+            fifdte] catch(-1403)
+}
+|
+publish data
+ where errors = @errors
+   and dwnld_info = @dwnld_info
+   and event_lodnum = @event_lodnum
+   and evt_data_seq = @evt_data_seq
+   and evt_stat_cd = @evt_stat_cd
+   and eo_data_seq = @eo_data_seq
+   and dwnld_seq = @dwnld_seq
+   and ins_dt = @ins_dt
+   and last_upd_dt = @last_upd_dt
+   and evt_dt = @evt_dt
+   and prtnum = @prtnum
+   and untcas = @untcas
+   and invsts = @invsts
+   and untqty = @untqty
+   and dstloc = @dstloc
+   and lodnum = @lodnum
+   and ftpcod = @ftpcod
+   and fifdte = @fifdte >> results
+|
+write csv file
+ where res = @results
+   and path = '/data/wms/les/temp/'
+   and filnam = 'inventory_dataload_summary.csv';

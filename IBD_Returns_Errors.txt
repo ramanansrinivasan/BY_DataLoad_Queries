@@ -1,0 +1,72 @@
+[select sl_dwnld.dwnld_seq,
+        sl_dwnld.dwnld_stat_cd,
+        sl_ifd_data_hdr.comm_cmnt,
+        sl_ifd_data_hdr.ifd_data_seq,
+        sl_dwnld.sys_id,
+        sl_dwnld.ins_dt Date
+   from sl_dwnld
+   join sl_ifd_data_hdr
+     on sl_dwnld.dwnld_seq = sl_ifd_data_hdr.dwnld_seq
+        -- where sl_dwnld.dwnld_seq = 256615
+
+  where sl_dwnld.ins_user_id = 'RAMANAN_DEV'
+    and sl_dwnld.ins_dt > sysdate -1]
+|
+sl_list evt for in_ifd
+ where ifd_data_seq = @ifd_data_seq
+|
+if (@dwnld_stat_cd = 'EERR')
+{
+    sl_list evt_data_arg
+     WHERE evt_data_seq = @evt_data_seq
+       and evt_arg_id = 'INVNUM'
+}
+|
+if (@dwnld_stat_cd = 'EDONE')
+{
+    sl_list ifd_data_fld
+     WHERE return_as_projection = 'F'
+       AND ifd_data_seq = @ifd_data_seq
+       AND ifd_data_dtl_seq = '1'
+       and ifd_fld_id = 'INVNUM'
+    |
+    [select *
+       from rimhdr
+       join rimlin
+         on rimhdr.invnum = rimlin.invnum
+        and rimhdr.supnum = rimlin.supnum
+      where rimhdr.invnum = @value]
+}
+|
+publish data
+ where evt_data_seq = @evt_data_seq
+   and evt_arg_val = nvl(@evt_arg_val, @value)
+   and ifd_data_seq = @ifd_data_seq
+   and dwnld_seq = @dwnld_seq
+   and dwnld_stat_cd = @dwnld_stat_cd
+   and comm_cmnt = @comm_cmnt
+   and sys_id = @sys_id
+   and date = @date
+   and header_client_id = @client_id
+   and header_supnum = @supnum
+   and header_invnum = @invnum
+   and header_wh_id = @wh_id
+   and header_invtyp = @invtyp
+   and header_sadnum = @sadnum
+   and header_waybil = @waybil
+   and header_invdte = @invdte
+   and header_adddte = @adddte
+   and header_orgref = @orgref
+   and header_clsdte = @clsdte
+   and header_cstms_typ = @cstms_typ
+   and invlin = @invlin
+   and invsln = @invsln
+   and expqty = @expqty
+   and idnqty = @idnqty
+   and exp_catch_qty = @exp_catch_qty
+   and idn_catch_qty = @idn_catch_qty
+   and prtnum = @prtnum
+   and orgcod = @orgcod
+   and revlvl = @revlvl
+   and rcvsts = @rcvsts
+   and tohsta = @tohsta
