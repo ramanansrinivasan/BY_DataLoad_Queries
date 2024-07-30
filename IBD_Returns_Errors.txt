@@ -7,7 +7,7 @@
    from sl_dwnld
    join sl_ifd_data_hdr
      on sl_dwnld.dwnld_seq = sl_ifd_data_hdr.dwnld_seq
-        -- where sl_dwnld.dwnld_seq = 256615
+        -- where sl_dwnld.dwnld_seq = --256615
 
   where sl_dwnld.ins_user_id = 'RAMANAN_DEV'
     and sl_dwnld.ins_dt > sysdate -1]
